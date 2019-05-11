@@ -1,0 +1,91 @@
+/*
+ * MIDI.c
+ *
+ * Created: 4/28/2019 4:10:40 PM
+ * Author : Ayan Sengupta, Achuthan Panikath
+ * Course: ECE231, UMass Amherst
+ *
+ * Usage:
+ *	Run the program .
+ *
+ * Revision history:
+  * 1.0 Initial Version setup files
+    1.1 Made main method, and initializers
+    1.2 Updated auxiliary functions - for USART
+    1.3 Bugs fixed for optimization
+    1.4 Documentation added
+  *
+  *
+  * Note: 30 April 2019 - tested and ready for demo
+  *
+  *
+  * References: This program utilizes the Atmega 817 datasheet, megaAVR datasheet for Atmega 328P
+  */
+#include <avr/io.h>
+#define FOSC 16000000 // Clock Speed for crystal oscillator
+#define BAUD 31250 // BAUD rate
+#define MYUBRR  FOSC/16/BAUD-1 // used value of rate
+
+//initializer for USART
+void USART_Init( unsigned int ubrr)
+{
+	/*Set baud rate */
+	UBRR0H = (unsigned char)(ubrr>>8);
+	UBRR0L = (unsigned char)ubrr;
+	/*Enable receiver and transmitter */
+	UCSR0B = (1<<RXEN0)|(1<<TXEN0);
+	/* Set frame format: 8data, 2stop bit */
+	UCSR0C = (1<<USBS0)|(3<<UCSZ00);
+}
+
+//initializer for SPI
+void SPI_MasterInit(void)
+{
+	/* Set MOSI and SCK output, all others input */
+	DDRB= (1<<DDB3)|(1<<DDB5)|(1<<DDB2);
+	/* Enable SPI, Master, set clock rate fck/16 */
+	SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR0);
+}
+
+//method that receives USART signal
+uint8_t USART_Receive( void )
+{
+	/* Wait for data to be received */
+	while ( !(UCSR0A & (1<<RXC0)) )
+	;
+	/* Get and return received data from buffer */
+	return UDR0;//sends data as a binary number
+}
+
+//method to transmit SPI data
+void SPI_MasterTransmit(char cData)
+{
+	/* Start transmission */
+	SPDR = cData;
+	/* Wait for transmission complete */
+	while(!(SPSR & (1<<SPIF)))
+	;
+}
+
+int main(void)
+{
+	while(1){
+		//initializes USART & SPI
+		USART_Init(MYUBRR);//passes the actual BAUD rate value
+		SPI_MasterInit();
+		
+		//receives the first byte of data
+		uint8_t received1 = USART_Receive();
+		//receives MIDI
+		uint8_t received2 = USART_Receive();
+		//receives the last byte
+		uint8_t received3 = USART_Receive();
+		if(received1=0x80){
+			//checks if the first received byte signals a correct transmission
+			SPI_MasterTransmit(received2);
+			//transmits the data as an SPI
+		}
+ }
+ 
+ 
+ }
